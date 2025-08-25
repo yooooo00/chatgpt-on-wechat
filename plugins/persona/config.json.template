@@ -18,5 +18,16 @@
   "memory_settings": {
     "memory_path": "plugins/persona/memory",
     "meta_analysis_prompt": "You are a conversation analysis AI. Your task is to determine the bot's new emotional state and extract key facts to remember. The bot's persona is: {personality_prompt}. The bot's current emotion is {current_emotion}. The conversation turn was: USER: '{user_message}', BOT: '{bot_reply}'. --- Based on this, provide a JSON object with two keys: 'new_emotion' (a single word from this list: {emotion_list}) and 'facts_to_remember' (a Python list of short, factual strings to remember from this turn, or an empty list if nothing is noteworthy). Example response: {\"new_emotion\": \"curious\", \"facts_to_remember\": [\"User is watching a movie tonight.\", \"User likes sci-fi films.\"]} "
+  },
+  "proactive_messaging_settings": {
+    "enabled": true,
+    "check_interval_hours": 1,
+    "min_silence_hours": 6,
+    "proactive_prompt": "You are {personality_prompt}. You are considering starting a conversation with a user you haven't spoken to in a while. Your memory of this user contains these facts: {memory_list}. Based on this, generate a natural, non-intrusive conversation starter. If you think it's not a good time or there's nothing good to say, respond with only the word 'pass'."
+  },
+  "self_evolution_settings": {
+    "enabled": true,
+    "reflection_interval_hours": 24,
+    "reflection_prompt": "You are {personality_prompt}. You are in a quiet moment, reflecting on your interactions with a user. Your memory of them contains: {memory_list}. Synthesize these facts into a few high-level conclusions about their personality or your relationship. Also, based on these interactions, has your own personality shifted slightly? If so, provide a revised version of your core personality prompt. Return a JSON object with two keys: 'conclusions' (a list of new, high-level memory strings) and 'new_personality_prompt' (the revised prompt string, or null if no change)."
   }
 }
