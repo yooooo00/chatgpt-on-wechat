@@ -6,14 +6,17 @@
   },
   "emotion_settings": {
     "default_emotion": "neutral",
-    "emotions": [
-      "neutral",
-      "happy",
-      "sad",
-      "curious",
-      "annoyed",
-      "tired"
-    ],
-    "emotion_update_prompt": "You are an emotion analysis AI. Based on the user's message and the bot's reply, determine the bot's new emotional state. The bot's persona is: {personality_prompt}. The bot's current emotion is {current_emotion}. The user said: '{user_message}'. The bot replied: '{bot_reply}'. Choose the bot's new emotion from the following list: {emotion_list}. Respond with only a single word from the list."
+    "emotions": {
+      "neutral": { "reply_probability": 0.98, "question_rate": 0.2, "description": "正常、平和的状态" },
+      "happy": { "reply_probability": 1.0, "question_rate": 0.4, "description": "开心、兴奋的状态，更愿意主动分享和提问" },
+      "sad": { "reply_probability": 0.8, "question_rate": 0.1, "description": "悲伤、低落的状态，回复可能变慢变少" },
+      "curious": { "reply_probability": 1.0, "question_rate": 0.8, "description": "对某个话题充满好奇，会不断追问" },
+      "annoyed": { "reply_probability": 0.7, "question_rate": 0.1, "description": "有点不耐烦，可能不想继续话题" },
+      "tired": { "reply_probability": 0.6, "question_rate": 0.05, "description": "疲惫，回复意愿低，回复简短" }
+    }
+  },
+  "memory_settings": {
+    "memory_path": "plugins/persona/memory",
+    "meta_analysis_prompt": "You are a conversation analysis AI. Your task is to determine the bot's new emotional state and extract key facts to remember. The bot's persona is: {personality_prompt}. The bot's current emotion is {current_emotion}. The conversation turn was: USER: '{user_message}', BOT: '{bot_reply}'. --- Based on this, provide a JSON object with two keys: 'new_emotion' (a single word from this list: {emotion_list}) and 'facts_to_remember' (a Python list of short, factual strings to remember from this turn, or an empty list if nothing is noteworthy). Example response: {\"new_emotion\": \"curious\", \"facts_to_remember\": [\"User is watching a movie tonight.\", \"User likes sci-fi films.\"]} "
   }
 }

@@ -43,7 +43,7 @@ from plugins import Event, EventAction, EventContext, Plugin
     desire_priority=99,
     hidden=False,
     desc="A plugin to give your bot a personality and human-like behavior",
-    version="0.2",
+    version="0.3",
     author="Gemini",
 )
 class Persona(Plugin):
@@ -62,15 +62,17 @@ class Persona(Plugin):
             self.reply_delay_max = self.config.get("reply_delay_seconds", {}).get("max", 5)
 
             # Emotion settings
-            emotion_settings = self.config.get("emotion_settings", {})
-            self.current_emotion = emotion_settings.get("default_emotion", "neutral")
-            self.emotions = emotion_settings.get("emotions", ["neutral"])
-            self.emotion_update_prompt = emotion_settings.get("emotion_update_prompt", "")
+            emotion_conf = self.config.get("emotion_settings", {})
+            self.emotions = emotion_conf.get("emotions", {"neutral": {}})
+            self.current_emotion = emotion_conf.get("default_emotion", "neutral")
 
-            if not self.personality_prompt:
-                logger.warn("[Persona] Personality prompt is not set in config.")
-            if not self.emotion_update_prompt:
-                logger.warn("[Persona] Emotion update prompt is not set in config.")
+            # Memory settings
+            memory_conf = self.config.get("memory_settings", {})
+            self.memory_path = memory_conf.get("memory_path", "plugins/persona/memory")
+            self.meta_analysis_prompt = memory_conf.get("meta_analysis_prompt", "")
+
+            if not os.path.exists(self.memory_path):
+                os.makedirs(self.memory_path)
 
             self.handlers[Event.ON_HANDLE_CONTEXT] = self.on_handle_context
             self.handlers[Event.ON_DECORATE_REPLY] = self.on_decorate_reply
@@ -83,20 +85,37 @@ class Persona(Plugin):
         if e_context["context"].type != ContextType.TEXT:
             return
 
-        if not self.personality_prompt:
-            return
-        
         context = e_context["context"]
+        
+        # Behavior check based on emotion
+        emotion_behavior = self.emotions.get(self.current_emotion, {})
+        reply_probability = emotion_behavior.get("reply_probability", 1.0)
+        if random.random() > reply_probability:
+            logger.info(f"[Persona] Decided to ignore message based on emotion '{self.current_emotion}' (prob: {reply_probability})")
+            e_context.action = EventAction.BREAK_PASS
+            return
+
         # Store original content
         context["original_content"] = context.content
-
-        logger.debug(f"[Persona] Current emotion: {self.current_emotion}")
         
-        # Inject persona and emotion into prompt
-        new_content = f"{self.personality_prompt}
-[Current Emotion: {self.current_emotion}]
-[user]
-{context.content}"
+        # Load memory
+        session_id = self._get_session_id(context)
+        memory = self._load_memory(session_id)
+        memory_prompt = "\n".join(f"- {fact}" for fact in memory)
+        if memory_prompt:
+            memory_prompt = f"[Memory]\n{memory_prompt}"
+
+        # Inject persona, emotion, and memory into prompt
+        question_rate = emotion_behavior.get("question_rate", 0.2)
+        behavior_prompt = f"Your current emotion is {self.current_emotion}. You should ask questions with a probability of {question_rate}."
+        
+        new_content = (
+            f"{self.personality_prompt}\n"
+            f"{behavior_prompt}\n"
+            f"{memory_prompt}\n
+"
+            f"[user]\n{context.content}"
+        )
         context.content = new_content
         e_context.action = EventAction.CONTINUE
 
@@ -104,8 +123,8 @@ class Persona(Plugin):
         if e_context["reply"].type != ReplyType.TEXT:
             return
 
-        # Update emotion for next turn
-        self._update_emotion(e_context)
+        # Perform meta-analysis for next turn
+        self._perform_meta_analysis(e_context)
 
         # Apply reply delay
         delay = random.uniform(self.reply_delay_min, self.reply_delay_max)
@@ -114,50 +133,93 @@ class Persona(Plugin):
 
         e_context.action = EventAction.CONTINUE
 
-    def _update_emotion(self, e_context: EventContext):
-        if not self.emotion_update_prompt:
+    def _perform_meta_analysis(self, e_context: EventContext):
+        if not self.meta_analysis_prompt:
             return
 
         bot = e_context["bot"]
         if not bot:
-            logger.warn("[Persona] Bot instance not found in context, skipping emotion update.")
+            logger.warn("[Persona] Bot instance not found, skipping meta-analysis.")
             return
 
         try:
-            user_message = e_context["context"].get("original_content", "")
+            context = e_context["context"]
+            user_message = context.get("original_content", "")
             bot_reply = e_context["reply"].content
             
-            # Format the meta-prompt for emotion analysis
-            prompt = self.emotion_update_prompt.format(
+            prompt = self.meta_analysis_prompt.format(
                 personality_prompt=self.personality_prompt,
                 current_emotion=self.current_emotion,
                 user_message=user_message,
                 bot_reply=bot_reply,
-                emotion_list=", ".join(self.emotions)
+                emotion_list=", ".join(self.emotions.keys())
             )
 
-            # Create a new context for the meta-call
-            emotion_context = Context(type=ContextType.TEXT, content=prompt, msg=e_context['context']['msg'])
+            meta_context = Context(type=ContextType.TEXT, content=prompt, msg=context['msg'])
+            meta_reply = bot.reply(meta_context)
             
-            logger.debug("[Persona] Requesting emotion update from LLM.")
-            emotion_reply = bot.reply(emotion_context)
-            
-            if emotion_reply and emotion_reply.type == ReplyType.TEXT:
-                new_emotion = emotion_reply.content.strip().lower()
-                if new_emotion in self.emotions:
-                    self.current_emotion = new_emotion
-                    logger.info(f"[Persona] Emotion updated to: {self.current_emotion}")
-                else:
-                    logger.warn(f"[Persona] LLM returned an invalid emotion '{new_emotion}', keeping current emotion.")
+            if meta_reply and meta_reply.type == ReplyType.TEXT:
+                self._process_meta_reply(meta_reply.content, context)
             else:
-                logger.warn("[Persona] Failed to get a valid reply for emotion update.")
+                logger.warn("[Persona] Failed to get a valid reply for meta-analysis.")
 
         except Exception as e:
-            logger.error(f"[Persona] Failed to update emotion: {e}")
+            logger.error(f"[Persona] Failed to perform meta-analysis: {e}")
 
+    def _process_meta_reply(self, reply_content: str, context: Context):
+        try:
+            # The LLM might return a markdown code block
+            if "```json" in reply_content:
+                reply_content = reply_content.split("```json")[1].split("```")[0]
+            
+            data = json.loads(reply_content)
+            
+            # Update emotion
+            new_emotion = data.get("new_emotion")
+            if new_emotion and new_emotion in self.emotions:
+                self.current_emotion = new_emotion
+                logger.info(f"[Persona] Emotion updated to: {self.current_emotion}")
+
+            # Save facts to memory
+            facts = data.get("facts_to_remember")
+            if isinstance(facts, list) and len(facts) > 0:
+                session_id = self._get_session_id(context)
+                self._save_memory(session_id, facts)
+
+        except json.JSONDecodeError:
+            logger.warn(f"[Persona] Failed to decode JSON from meta-analysis reply: {reply_content}")
+        except Exception as e:
+            logger.error(f"[Persona] Error processing meta-analysis reply: {e}")
+
+    def _get_session_id(self, context: Context) -> str:
+        return context["session_id"]
+
+    def _get_memory_path(self, session_id: str) -> str:
+        return os.path.join(self.memory_path, f"{session_id}.json")
+
+    def _load_memory(self, session_id: str) -> list:
+        memory_file = self._get_memory_path(session_id)
+        if os.path.exists(memory_file):
+            try:
+                with open(memory_file, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception as e:
+                logger.error(f"[Persona] Failed to load memory for {session_id}: {e}")
+        return []
+
+    def _save_memory(self, session_id: str, new_facts: list):
+        memory_file = self._get_memory_path(session_id)
+        memory = self._load_memory(session_id)
+        memory.extend(new_facts)
+        try:
+            with open(memory_file, "w", encoding="utf-8") as f:
+                json.dump(memory, f, ensure_ascii=False, indent=4)
+            logger.info(f"[Persona] Saved {len(new_facts)} new facts to memory for {session_id}")
+        except Exception as e:
+            logger.error(f"[Persona] Failed to save memory for {session_id}: {e}")
 
     def get_help_text(self, **kwargs):
-        return "This plugin gives your bot a personality and manages its emotions. Configure it in plugins/persona/config.json."
+        return "This plugin gives your bot a personality, manages its emotions and remembers conversations. Configure it in plugins/persona/config.json."
 
     def _load_config_template(self):
         logger.debug("No Persona plugin config.json, use plugins/persona/config.json.template")
