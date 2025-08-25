@@ -34,4 +34,5 @@ plugins/banwords/lib/__pycache__
 !plugins/keyword
 !plugins/linkai
 !plugins/agent
+!plugins/persona
 client_config.json
