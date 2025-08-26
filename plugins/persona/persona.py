@@ -19,8 +19,8 @@ from plugins import Event, EventAction, EventContext, Plugin
     name="Persona",
     desire_priority=99,
     hidden=False,
-    desc="A plugin to give your bot a personality and human-like behavior",
-    version="0.4",
+    desc="一个赋予你的机器人人格和类人行为的插件",
+    version="0.4.1",
     author="Gemini",
 )
 class Persona(Plugin):
@@ -31,28 +31,28 @@ class Persona(Plugin):
             if not self.config:
                 self.config = self._load_config_template()
 
-            # Core settings
+            # 核心设定
             self.personality_prompt = self.config.get("personality_prompt", "")
-            self.bot = None  # To be populated later
+            self.bot = None  # 后续流程中填充
 
-            # Emotion settings
+            # 情绪设定
             emotion_conf = self.config.get("emotion_settings", {})
             self.emotions = emotion_conf.get("emotions", {"neutral": {}})
             self.current_emotion = emotion_conf.get("default_emotion", "neutral")
 
-            # Memory settings
+            # 记忆设定
             memory_conf = self.config.get("memory_settings", {})
             self.memory_path = memory_conf.get("memory_path", "plugins/persona/memory")
             self.meta_analysis_prompt = memory_conf.get("meta_analysis_prompt", "")
 
-            # Proactive messaging settings
+            # 主动消息设定
             proactive_conf = self.config.get("proactive_messaging_settings", {})
             self.proactive_enabled = proactive_conf.get("enabled", False)
             self.proactive_prompt = proactive_conf.get("proactive_prompt", "")
             self.proactive_interval = proactive_conf.get("check_interval_hours", 1) * 3600
             self.proactive_min_silence = proactive_conf.get("min_silence_hours", 6) * 3600
 
-            # Self-evolution settings
+            # 自我进化设定
             evolution_conf = self.config.get("self_evolution_settings", {})
             self.evolution_enabled = evolution_conf.get("enabled", False)
             self.evolution_prompt = evolution_conf.get("reflection_prompt", "")
@@ -64,17 +64,17 @@ class Persona(Plugin):
             self.handlers[Event.ON_HANDLE_CONTEXT] = self.on_handle_context
             self.handlers[Event.ON_DECORATE_REPLY] = self.on_decorate_reply
 
-            # Start background tasks
+            # 启动后台任务
             if self.proactive_enabled:
                 self._start_proactive_scheduler()
             if self.evolution_enabled:
                 self._start_evolution_scheduler()
 
-            logger.info(f"[Persona] inited. Version 0.4. Emotion: {self.current_emotion}")
+            logger.info(f"[人格插件] 已初始化。版本 0.4.1。当前情绪: {self.current_emotion}")
 
         except Exception as e:
-            logger.error(f"[Persona] initialization failed: {e}")
-            raise f"[Persona] init failed, ignore "
+            logger.error(f"[人格插件] 初始化失败: {e}")
+            raise f"[人格插件] 初始化失败，跳过加载 "
 
     def on_handle_context(self, e_context: EventContext):
         if e_context["context"].type != ContextType.TEXT:
@@ -87,7 +87,7 @@ class Persona(Plugin):
         emotion_behavior = self.emotions.get(self.current_emotion, {})
         reply_probability = emotion_behavior.get("reply_probability", 1.0)
         if random.random() > reply_probability:
-            logger.info(f"[Persona] Ignoring message based on emotion '{self.current_emotion}'")
+            logger.info(f"[人格插件] 基于情绪 '{self.current_emotion}' 决定忽略消息 (概率: {reply_probability})")
             e_context.action = EventAction.BREAK_PASS
             return
 
@@ -96,12 +96,12 @@ class Persona(Plugin):
         memory = self._load_memory(session_id)
         memory_prompt = "\n".join(f"- {fact}" for fact in memory)
         if memory_prompt:
-            memory_prompt = f"[Memory]\n{memory_prompt}"
+            memory_prompt = f"[记忆]\n{memory_prompt}"
 
         question_rate = emotion_behavior.get("question_rate", 0.2)
-        behavior_prompt = f"Your current emotion is {self.current_emotion}. You should ask questions with a probability of {question_rate}."
+        behavior_prompt = f"你当前的情绪是 {self.current_emotion}。你应该以 {question_rate} 的概率提问。"
         
-        context.content = f"{self.personality_prompt}\n{behavior_prompt}\n{memory_prompt}\n\n[user]\n{context.content}"
+        context.content = f"{self.personality_prompt}\n{behavior_prompt}\n{memory_prompt}\n\n[用户]\n{context.content}"
         e_context.action = EventAction.CONTINUE
 
     def on_decorate_reply(self, e_context: EventContext):
@@ -121,12 +121,12 @@ class Persona(Plugin):
                 bot_reply=e_context["reply"].content,
                 emotion_list=", ".join(self.emotions.keys())
             )
-            meta_context = Context(type=ContextType.TEXT, content=prompt, msg=context['msg'])
+            meta_context = Context(type=ContextType.TEXT, content=prompt, msg=context.get('msg'))
             meta_reply = self.bot.reply(meta_context)
             if meta_reply and meta_reply.type == ReplyType.TEXT:
                 self._process_meta_reply(meta_reply.content, context)
         except Exception as e:
-            logger.error(f"[Persona] Failed to perform meta-analysis: {e}")
+            logger.error(f"[人格插件] 执行元分析失败: {e}")
 
     def _process_meta_reply(self, reply_content: str, context: Context):
         try:
@@ -136,17 +136,17 @@ class Persona(Plugin):
             if new_emotion := data.get("new_emotion"):
                 if new_emotion in self.emotions:
                     self.current_emotion = new_emotion
-                    logger.info(f"[Persona] Emotion updated to: {self.current_emotion}")
+                    logger.info(f"[人格插件] 情绪已更新为: {self.current_emotion}")
             if facts := data.get("facts_to_remember"):
                 if isinstance(facts, list) and len(facts) > 0:
                     self._save_memory(self._get_session_id(context), facts)
         except Exception as e:
-            logger.error(f"[Persona] Error processing meta-analysis reply: {e}")
+            logger.error(f"[人格插件] 处理元分析回复失败: {e}")
 
     def _start_proactive_scheduler(self):
         if not self.proactive_enabled:
             return
-        logger.info("[Persona] Starting proactive messaging scheduler.")
+        logger.info("[人格插件] 启动主动消息调度器。")
         def run():
             self._consider_proactive_action()
             threading.Timer(self.proactive_interval, run).start()
@@ -154,13 +154,14 @@ class Persona(Plugin):
 
     def _consider_proactive_action(self):
         if not self.bot:
+            logger.warn("[人格插件] Bot实例未准备好，无法执行主动操作。")
             return
         now = time.time()
         for session_file in os.listdir(self.memory_path):
             session_id = session_file.replace(".json", "")
             memory_file_path = self._get_memory_path(session_id)
             if (now - os.path.getmtime(memory_file_path)) > self.proactive_min_silence:
-                logger.info(f"[Persona] Considering proactive message for {session_id}")
+                logger.info(f"[人格插件] 正在为 {session_id} 考虑主动发送消息")
                 memory = self._load_memory(session_id)
                 if not memory: continue
                 prompt = self.proactive_prompt.format(personality_prompt=self.personality_prompt, memory_list="\n".join(memory))
@@ -169,14 +170,11 @@ class Persona(Plugin):
                     self._send_proactive_message(session_id, reply.content)
 
     def _send_proactive_message(self, session_id: str, content: str):
-        logger.info(f"[Persona] Sending proactive message to {session_id}")
+        logger.info(f"[人格插件] 发送主动消息给 {session_id}")
         bridge = Bridge()
-        # This part is tricky as it depends on the exact channel implementation
-        # We construct a mock context to deliver the message
-        # This might need adjustment based on the project's architecture
         mock_msg = ChatMessage()
         mock_msg.from_user_id = session_id
-        mock_msg.to_user_id = self.bot.user_id # Assuming bot has user_id
+        mock_msg.to_user_id = self.bot.user_id
         mock_context = Context(type=ContextType.TEXT, content=content, msg=mock_msg)
         reply = Reply(type=ReplyType.TEXT, content=content)
         bridge.send_reply(reply, mock_context)
@@ -184,7 +182,7 @@ class Persona(Plugin):
     def _start_evolution_scheduler(self):
         if not self.evolution_enabled:
             return
-        logger.info("[Persona] Starting self-evolution scheduler.")
+        logger.info("[人格插件] 启动自我进化调度器。")
         def run():
             self._perform_self_reflection()
             threading.Timer(self.evolution_interval, run).start()
@@ -193,7 +191,7 @@ class Persona(Plugin):
     def _perform_self_reflection(self):
         if not self.bot:
             return
-        logger.info("[Persona] Performing self-reflection cycle.")
+        logger.info("[人格插件] 正在执行自我反思周期。")
         for session_file in os.listdir(self.memory_path):
             session_id = session_file.replace(".json", "")
             memory = self._load_memory(session_id)
@@ -210,19 +208,21 @@ class Persona(Plugin):
             data = json.loads(reply_content)
             if conclusions := data.get("conclusions"):
                 if isinstance(conclusions, list) and len(conclusions) > 0:
-                    self._save_memory(session_id, [f"[Reflection] {c}" for c in conclusions])
+                    self._save_memory(session_id, [f"[反思] {c}" for c in conclusions])
             if new_prompt := data.get("new_personality_prompt"):
                 if new_prompt != self.personality_prompt:
                     self.personality_prompt = new_prompt
                     self._update_config_file()
-                    logger.info(f"[Persona] Personality has evolved for {session_id}!")
+                    logger.info(f"[人格插件] 人格已为 {session_id} 进化！")
         except Exception as e:
-            logger.error(f"[Persona] Error processing reflection reply: {e}")
+            logger.error(f"[人格插件] 处理反思回复失败: {e}")
 
     def _update_config_file(self):
         config_path = os.path.join(self.path, "config.json")
         if not os.path.exists(config_path):
-            config_path = os.path.join(self.path, "config.json.template")
+            # 如果用户没有自己的config.json，我们不应该修改模板
+            logger.warn("[人格插件] 未找到config.json，无法保存进化的人格。")
+            return
         with open(config_path, 'r+', encoding='utf-8') as f:
             config_data = json.load(f)
             config_data['personality_prompt'] = self.personality_prompt
@@ -251,15 +251,15 @@ class Persona(Plugin):
         try:
             with open(memory_file, "w", encoding="utf-8") as f:
                 json.dump(memory, f, ensure_ascii=False, indent=4)
-            logger.info(f"[Persona] Saved {len(new_facts)} new facts to memory for {session_id}")
+            logger.info(f"[人格插件] 已为 {session_id} 保存 {len(new_facts)} 条新记忆")
         except Exception as e:
-            logger.error(f"[Persona] Failed to save memory for {session_id}: {e}")
+            logger.error(f"[人格插件] 为 {session_id} 保存记忆失败: {e}")
 
     def get_help_text(self, **kwargs):
-        return "This plugin gives your bot a personality, emotions, memory, and proactive capabilities. Version 0.4."
+        return "本插件赋予机器人人格、情绪、记忆和主动沟通能力。版本 0.4.1。"
 
     def _load_config_template(self):
-        logger.debug("No Persona plugin config.json, use plugins/persona/config.json.template")
+        logger.debug("[人格插件] 未找到config.json，使用模板config.json.template")
         try:
             plugin_config_path = os.path.join(self.path, "config.json.template")
             if os.path.exists(plugin_config_path):

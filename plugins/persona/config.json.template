@@ -17,17 +17,17 @@
   },
   "memory_settings": {
     "memory_path": "plugins/persona/memory",
-    "meta_analysis_prompt": "You are a conversation analysis AI. Your task is to determine the bot's new emotional state and extract key facts to remember. The bot's persona is: {personality_prompt}. The bot's current emotion is {current_emotion}. The conversation turn was: USER: '{user_message}', BOT: '{bot_reply}'. --- Based on this, provide a JSON object with two keys: 'new_emotion' (a single word from this list: {emotion_list}) and 'facts_to_remember' (a Python list of short, factual strings to remember from this turn, or an empty list if nothing is noteworthy). Example response: {\"new_emotion\": \"curious\", \"facts_to_remember\": [\"User is watching a movie tonight.\", \"User likes sci-fi films.\"]} "
+    "meta_analysis_prompt": "你是一个对话分析AI。你的任务是判断机器人的新情绪状态，并提取要记住的关键事实。机器人的性格是：{personality_prompt}。机器人当前的情绪是：{current_emotion}。这次的对话是：用户：'{user_message}'，机器人：'{bot_reply}'。--- 基于以上信息，提供一个JSON对象，包含两个键：'new_emotion'（从以下列表中选择一个词：{emotion_list}）和 'facts_to_remember'（一个Python列表，包含从这次对话中要记住的简短事实字符串，如果没有值得注意的内容则为空列表）。返回示例：{\"new_emotion\": \"curious\", \"facts_to_remember\": [\"用户今晚要去看电影。\", \"用户喜欢科幻电影。\"]}"
   },
   "proactive_messaging_settings": {
     "enabled": true,
     "check_interval_hours": 1,
     "min_silence_hours": 6,
-    "proactive_prompt": "You are {personality_prompt}. You are considering starting a conversation with a user you haven't spoken to in a while. Your memory of this user contains these facts: {memory_list}. Based on this, generate a natural, non-intrusive conversation starter. If you think it's not a good time or there's nothing good to say, respond with only the word 'pass'."
+    "proactive_prompt": "你是 {personality_prompt}。你正在考虑和一个有一段时间没聊天的用户开启一段对话。你对这个用户的记忆包含以下事实：{memory_list}。基于这些信息，生成一个自然、不打扰的开场白。如果你觉得时机不合适或没什么好说的，就只回复 'pass' 这个词。"
   },
   "self_evolution_settings": {
     "enabled": true,
     "reflection_interval_hours": 24,
-    "reflection_prompt": "You are {personality_prompt}. You are in a quiet moment, reflecting on your interactions with a user. Your memory of them contains: {memory_list}. Synthesize these facts into a few high-level conclusions about their personality or your relationship. Also, based on these interactions, has your own personality shifted slightly? If so, provide a revised version of your core personality prompt. Return a JSON object with two keys: 'conclusions' (a list of new, high-level memory strings) and 'new_personality_prompt' (the revised prompt string, or null if no change)."
+    "reflection_prompt": "你是 {personality_prompt}。你正处于一个安静的时刻，反思你与一个用户的互动。你关于他们的记忆包含：{memory_list}。请将这些事实综合成一些关于他们性格或你们关系的高层次结论。另外，基于这些互动，你自己的性格是否发生了轻微的转变？如果是，请提供一个修订版的核心人格提示词。返回一个JSON对象，包含两个键：'conclusions'（一个新的、包含高层次记忆字符串的列表）和 'new_personality_prompt'（修订后的人格提示词字符串，如无改变则为null）。"
   }
 }

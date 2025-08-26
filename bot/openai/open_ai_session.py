@@ -18,15 +18,23 @@ class OpenAISession(Session):
         prompt = ""
         for item in self.messages:
             if item["role"] == "system":
-                prompt += item["content"] + "<|endoftext|>\n\n\n"
+                prompt += item["content"] + "<|endoftext|>
+
+
+"
             elif item["role"] == "user":
                 prompt += "Q: " + item["content"] + "\n"
             elif item["role"] == "assistant":
-                prompt += "\n\nA: " + item["content"] + "<|endoftext|>\n"
+                prompt += "\n\nA: " + item["content"] + "<|endoftext|>
+"
 
         if len(self.messages) > 0 and self.messages[-1]["role"] == "user":
             prompt += "A: "
         return prompt
+
+    def get_messages(self):
+        # 构造聊天模型的输入
+        return self.messages
 
     def discard_exceeding(self, max_tokens, cur_tokens=None):
         precise = True
